@@ -3,101 +3,101 @@ import numpy as np
 from sklearn.utils import check_random_state
 from scipy.sparse import issparse
 from collections.abc import MutableMapping
+from typing import Iterable, Union, Optional
+from anndata import AnnData
+from distutils.version import LooseVersion
 
 from ..preprocessing._simple import N_PCS
 from ..neighbors import _rp_forest_generate
+from .. import logging as logg
+from .._utils import version
 
 
 def ingest(
-    adata,
-    adata_ref,
-    obs=None,
-    inplace=True,
-    embedding_method=('umap', 'pca'),
-    labeling_method='knn',
-    return_joint=False,
-    batch_key='batch',
-    batch_categories=None,
-    index_unique='-',
+    adata: AnnData,
+    adata_ref: AnnData,
+    obs: Optional[Union[str, Iterable[str]]] = None,
+    embedding_method: Union[str, Iterable[str]] = ['umap', 'pca'],
+    labeling_method: str = 'knn',
+    inplace: bool = True,
     **kwargs,
 ):
     """\
-    Map labels and embeddings from existing data to new data.
+    Map labels and embeddings from reference data to new data.
 
-    This function allows to map the specified labels and embeddings
-    from `adata_ref` to `adata`.
-    The function uses the k-nearest neighbors method for mapping labels.
+    :tutorial:`integrating-data-using-ingest`
+
+    Integrates embeddings and annotations of an `adata` with a reference dataset
+    `adata_ref` through projecting on a PCA (or alternate
+    model) that has been fitted on the reference data. The function uses a knn
+    classifier for mapping labels and the UMAP package [McInnes18]_ for mapping
+    the embeddings.
+
+    .. note::
+
+        We refer to this *asymmetric* dataset integration as *ingesting*
+        annotations from reference data to new data. This is different from
+        learning a joint representation that integrates both datasets in an
+        unbiased way, as CCA (e.g. in Seurat) or a conditional VAE (e.g. in
+        scVI) would do.
+
     You need to run :func:`~scanpy.pp.neighbors` on `adata_ref` before
     passing it.
 
     Parameters
     ----------
-    adata : :class:`~anndata.AnnData`
+    adata
         The annotated data matrix of shape `n_obs` × `n_vars`. Rows correspond
         to cells and columns to genes. This is the dataset without labels and
         embeddings.
-    adata_ref : :class:`~anndata.AnnData`
+    adata_ref
         The annotated data matrix of shape `n_obs` × `n_vars`. Rows correspond
         to cells and columns to genes.
         Variables (`n_vars` and `var_names`) of `adata_ref` should be the same
         as in `adata`.
         This is the dataset with labels and embeddings
         which need to be mapped to `adata`.
-    obs : `str` or list of `str` or `None`, optional (default: `None`)
+    obs
         Labels' keys in `adata_ref.obs` which need to be mapped to `adata.obs`
         (inferred for observation of `adata`).
-    embedding_method : `str` or list of `str`, optional (default: `('umap', 'pca')`)
+    embedding_method
         Embeddings in `adata_ref` which need to be mapped to `adata`.
         The only supported values are 'umap' and 'pca'.
-    labeling_method : `str`, optional (default: `knn`)
+    labeling_method
         The method to map labels in `adata_ref.obs` to `adata.obs`.
         The only supported value is 'knn'.
-    return_joint : `bool`, optional (default: `False`)
-        If set to `True` the function
-        returns the new :class:`~anndata.AnnData` object with concatenated
-        existing embeddings and labels of 'adata_ref' and inferred embeddings
-        and labels for `adata`.
-    batch_key : `str`, optional (default: `'batch'`)
-        Only works if `return_joint=True`.
-        Add the batch annotation to `obs`
-        of the new :class:`~anndata.AnnData` object using this key.
-    batch_categories : `str` or `None`, optional (default: `None`)
-        Only works if `return_joint=True`.
-        Use these as categories for the batch annotation.
-        By default, use increasing numbers.
-    index_unique : `str` or `None`, optional (default: `None`)
-        Only works if `return_joint=True`.
-        Make the index unique by joining the existing index names with the
-        batch category, using `index_unique='-'`, for instance. Provide
-        `None` to keep existing indices.
-    inplace : `bool`, optional (default: `True`)
+    inplace
         Only works if `return_joint=False`.
         Add labels and embeddings to the passed `adata` (if `True`)
         or return a copy of `adata` with mapped embeddings and labels.
 
     Returns
     -------
-    if `return_joint=True` returns the new :class:`~anndata.AnnData` object
-    with concatenated existing embeddings and labels of 'adata_ref' and
-    inferred embeddings and labels for `adata`.
-    if `return_joint=False` then:
-
     * if `inplace=False` returns a copy of `adata`
-      with mapped embeddings and labels in `obsm` and `obs` correspondingly.
-    * if `inplace=True` returns nothing and updates `adata.obsm` and `adata.obs`
-      with mapped embeddings and labels.
+      with mapped embeddings and labels in `obsm` and `obs` correspondingly
+    * if `inplace=True` returns `None` and updates `adata.obsm` and `adata.obs`
+      with mapped embeddings and labels
 
     Example
     -------
-    Assuming there is `adata_ref` with 'cell_type' in `adata_ref.obs`
-    which we want to infer for observations in `adata`.
+    Call sequence:
+
     >>> sc.pp.neighbors(adata_ref)
     >>> sc.tl.umap(adata_ref)
-    >>> adata_joint = sc.tl.ingest(adata, adata_ref, obs='cell_type',
-                                   embedding_method='umap',
-                                   batch_key='ing_batch',
-                                   return_joint=True)
+    >>> sc.tl.ingest(adata, adata_ref, obs='cell_type')
+
+    .. _ingest PBMC tutorial: https://scanpy-tutorials.readthedocs.io/en/latest/integrating-pbmcs-using-ingest.html
+    .. _ingest Pancreas tutorial: https://scanpy-tutorials.readthedocs.io/en/latest/integrating-pancreas-using-ingest.html
     """
+    # anndata version check
+    anndata_version = version("anndata")
+    if anndata_version <= LooseVersion('0.6.23'):
+        raise ValueError(
+            f'ingest only works correctly with anndata>=0.7rc2 (you have {anndata_version}) '
+            'as prior to 0.7rc2, `AnnData.concatenate` did not concatenate `.obsm`'
+        )
+
+    start = logg.info('running ingest')
     obs = [obs] if isinstance(obs, str) else obs
     embedding_method = (
         [embedding_method]
@@ -125,10 +125,8 @@ def ingest(
         for i, col in enumerate(obs):
             ing.map_labels(col, labeling_method[i])
 
-    if return_joint:
-        return ing.to_adata_joint(batch_key, batch_categories, index_unique)
-    else:
-        return ing.to_adata(inplace)
+    logg.info('    finished', time=start)
+    return ing.to_adata(inplace)
 
 
 class _DimDict(MutableMapping):
@@ -399,8 +397,9 @@ class Ingest:
             )
 
     def _knn_classify(self, labels):
-        cat_array = self._adata_ref.obs[labels]
-
+        cat_array = self._adata_ref.obs[labels].astype(
+            'category'
+        )  # ensure it's categorical
         values = [cat_array[inds].mode()[0] for inds in self._indices]
         return pd.Categorical(
             values=values, categories=cat_array.cat.categories
