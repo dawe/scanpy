@@ -19,15 +19,15 @@ except ImportError:
     MutableVertexPartition.__module__ = 'leidenalg.VertexPartition'
 
 
-def leiden(
+def nsbm(
     adata: AnnData,
     resolution: float = 1,
     *,
     restrict_to: Optional[Tuple[str, Sequence[str]]] = None,
     random_state: Optional[Union[int, RandomState]] = 0,
-    key_added: str = 'leiden',
+    key_added: str = 'nsbm',
     adjacency: Optional[sparse.spmatrix] = None,
-    directed: bool = True,
+    directed: bool = False,
     use_weights: bool = True,
     n_iterations: int = -1,
     partition_type: Optional[Type[MutableVertexPartition]] = None,
@@ -37,9 +37,11 @@ def leiden(
     """\
     Cluster cells into subgroups [Traag18]_.
 
-    Cluster cells using the Leiden algorithm [Traag18]_,
-    an improved version of the Louvain algorithm [Blondel08]_.
-    It has been proposed for single-cell analysis by [Levine15]_.
+    Cluster cells using the nested Stochastic Block Model [Peixoto14]_,
+    a hierarchical version of Stochastic Block Model [Holland83]_, performing
+    Bayesian inference on node groups. NSBM should circumvent classical
+    limitations of SBM replacing the noninformative priors used by
+    a hierarchy of priors and hyperpriors.
 
     This requires having ran :func:`~scanpy.pp.neighbors` or
     :func:`~scanpy.external.pp.bbknn` first.
@@ -93,14 +95,19 @@ def leiden(
         and `n_iterations`.
     """
     try:
-        import leidenalg
+        import graph_tool.all as gt
     except ImportError:
         raise ImportError(
-            'Please install the leiden algorithm: `pip3 install leidenalg`.'
+            """Please install the graph-tool library either visiting
+
+            https://git.skewed.de/count0/graph-tool/-/wikis/installation-instructions
+
+            or by conda: `conda install -c conda-forge graph-tool`
+            """
         )
     partition_kwargs = dict(partition_kwargs)
 
-    start = logg.info('running Leiden clustering')
+    start = logg.info('running nested Stochastic Block Model')
     adata = adata.copy() if copy else adata
     # are we clustering a user-provided graph or the default AnnData one?
     if adjacency is None:
@@ -119,16 +126,13 @@ def leiden(
             adjacency,
         )
     # convert it to igraph
-    g = _utils.get_igraph_from_adjacency(adjacency, directed=directed)
-    # flip to the default partition type if not overriden by the user
-    if partition_type is None:
-        partition_type = leidenalg.RBConfigurationVertexPartition
+    g = _utils.get_graph_tool_from_adjacency(adjacency, directed=directed)
     # Prepare find_partition arguments as a dictionary,
     # appending to whatever the user provided. It needs to be this way
     # as this allows for the accounting of a None resolution
     # (in the case of a partition variant that doesn't take it on input)
     if use_weights:
-        partition_kwargs['weights'] = np.array(g.es['weight']).astype(np.float64)
+        partition_kwargs['weights'] = np.array(g.ep['edge_weight'].a).astype(np.float64)
     partition_kwargs['n_iterations'] = n_iterations
     partition_kwargs['seed'] = random_state
     if resolution is not None:
