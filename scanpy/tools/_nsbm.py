@@ -12,16 +12,16 @@ from .. import logging as logg
 
 from ._utils_clustering import rename_groups, restrict_adjacency
 
-try:
-    from leidenalg.VertexPartition import MutableVertexPartition
-except ImportError:
-    class MutableVertexPartition: pass
-    MutableVertexPartition.__module__ = 'leidenalg.VertexPartition'
-
-
 def nsbm(
     adata: AnnData,
-    resolution: float = 1,
+    sweep_iterations: int = 10000,
+    max_iterations: int = 1000000,
+    epsilon: float = 1e-3,
+    equilibrate: bool = True,
+    wait: int = 1000,
+    nbreaks: int = 2,
+    collect_marginals: bool = True,
+    hierarchy_length: int = 10,
     *,
     restrict_to: Optional[Tuple[str, Sequence[str]]] = None,
     random_state: Optional[Union[int, RandomState]] = 0,
@@ -29,19 +29,18 @@ def nsbm(
     adjacency: Optional[sparse.spmatrix] = None,
     directed: bool = False,
     use_weights: bool = True,
-    n_iterations: int = -1,
-    partition_type: Optional[Type[MutableVertexPartition]] = None,
     copy: bool = False,
     **partition_kwargs,
 ) -> Optional[AnnData]:
     """\
-    Cluster cells into subgroups [Traag18]_.
+    Cluster cells into subgroups [Peixoto14]_.
 
     Cluster cells using the nested Stochastic Block Model [Peixoto14]_,
     a hierarchical version of Stochastic Block Model [Holland83]_, performing
     Bayesian inference on node groups. NSBM should circumvent classical
-    limitations of SBM replacing the noninformative priors used by
-    a hierarchy of priors and hyperpriors.
+    limitations of SBM in detecting small groups in large graphs
+    replacing the noninformative priors used by a hierarchy of priors
+    and hyperpriors.
 
     This requires having ran :func:`~scanpy.pp.neighbors` or
     :func:`~scanpy.external.pp.bbknn` first.
@@ -50,16 +49,33 @@ def nsbm(
     ----------
     adata
         The annotated data matrix.
-    resolution
-        A parameter value controlling the coarseness of the clustering.
-        Higher values lead to more clusters.
-        Set to `None` if overriding `partition_type`
-        to one that doesn’t accept a `resolution_parameter`.
-    random_state
-        Change the initialization of the optimization.
-    restrict_to
-        Restrict the clustering to the categories within the key for sample
-        annotation, tuple needs to contain `(obs_key, list_of_categories)`.
+    sweep_iterations
+        Number of iterations to run mcmc_sweep.
+        Higher values lead longer runtime.
+    max_iterations
+        Maximal number of iterations to be performed by the equilibrate step.
+    epsilon
+        Relative changes in entropy smaller than epsilon will
+        not be considered as record-breaking.
+    equilibrate
+        Whether or not perform the mcmc_equilibrate step.
+        Equilibration should always be performed. Note, also, that without
+        equilibration it won't be possible to collect marginals.
+    collect_marginals
+        whether or not collect node probability of belonging
+        to a specific partition.
+    wait
+        Number of iterations to wait for a record-breaking event.
+        Higher values result in longer computations. Set it to small values
+        when performing quick tests.
+    nbreaks
+        Number of iteration intervals (of size `wait`) without
+        record-breaking events necessary to stop the algorithm.
+    hierarchy_length
+        Initial length of the hierarchy. When large values are
+        passed, the top-most levels will be uninformative as they
+        will likely contain the very same groups. Increase this valus
+        if a very large number of cells is analyzed (>100.000).
     key_added
         `adata.obs` key under which to add the cluster labels.
     adjacency
@@ -70,27 +86,16 @@ def nsbm(
     use_weights
         If `True`, edge weights from the graph are used in the computation
         (placing more emphasis on stronger edges).
-    n_iterations
-        How many iterations of the Leiden clustering algorithm to perform.
-        Positive values above 2 define the total number of iterations to perform,
-        -1 has the algorithm run until it reaches its optimal clustering.
-    partition_type
-        Type of partition to use.
-        Defaults to :class:`~leidenalg.RBConfigurationVertexPartition`.
-        For the available options, consult the documentation for
-        :func:`~leidenalg.find_partition`.
     copy
         Whether to copy `adata` or modify it inplace.
-    **partition_kwargs
-        Any further arguments to pass to `~leidenalg.find_partition`
-        (which in turn passes arguments to the `partition_type`).
 
     Returns
     -------
     `adata.obs[key_added]`
         Array of dim (number of samples) that stores the subgroup id
-        (`'0'`, `'1'`, ...) for each cell.
-    `adata.uns['leiden']['params']`
+        (`'0'`, `'1'`, ...) for each cell. Multiple arrays will be
+        added when `return_level` is set to `all`
+    `adata.uns['nsbm']['params']`
         A dict with the values for the parameters `resolution`, `random_state`,
         and `n_iterations`.
     """
