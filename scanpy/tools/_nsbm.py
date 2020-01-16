@@ -12,6 +12,9 @@ from .. import logging as logg
 
 from ._utils_clustering import rename_groups, restrict_adjacency
 
+
+
+
 def nsbm(
     adata: AnnData,
     sweep_iterations: int = 10000,
@@ -176,21 +179,35 @@ def nsbm(
     # equilibrate the Markov chain
     if equilibrate:
         logg.info('equlibrating the Markov chain')
-        e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait, nbreaks=nbreaks, epsilon=epsilon,
-            max_niter=max_iterations, mcmc_args=dict(niter=10)
-        )
+        if not collect_marginals:
+          e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
+                                                            nbreaks=nbreaks,
+                                                            epsilon=epsilon,
+                                                            max_niter=max_iterations,
+                                                            mcmc_args=dict(niter=10)
+                                                            )
+        else:
+            # we here only retain level_0 counts, until I can't figure out
+            # how to propagate correctly counts to higher levels
+            logg.info('    also collecting marginals')
+            l0_ngroups = state.get_levels()[0].get_nonempty_B()
+#            l0_counts = np.zeros((l0_ngroups, g.num_vertices()), dtype=np.int32)
+            def _collect_marginals(s):
+                global l0_counts
+                l0_marginals = s.get_levels()[0].collect_vertex_marginals()
+                l0_marginals = l0_marginals.get_2d_array(range(l0_ngroups))
+                try:
+                    l0_counts += l0_marginals
+                except NameError:
+                    l0_counts = np.zeros((l0_ngroups, g.num_vertices()), dtype=np.int32)
 
-    # run 1000 iterations of equilibrate just to collect marginals
-    if collect_marginals:
-        logg.info('collecting marginals')
-        vertex_counts = [None] * len(state.get_levels())
-        def collect_marginals(s):
-            global vertex_counts
-            vertex_counts = [sl.collect_vertex_marginals(vertex_counts[l]) for l, sl in enumerate(s.get_levels())]
-
-        gt.mcmc_equilibrate(state, force_niter=101, mcmc_args=dict(niter=10), wait=wait,
-            nbreaks=nbreaks, epsilon=epsilon, callback=collect_marginals
-        )
+            e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
+                                                            nbreaks=nbreaks,
+                                                            epsilon=epsilon,
+                                                            max_niter=max_iterations,
+                                                            mcmc_args=dict(niter=10),
+                                                            callback=_collect_marginals
+                                                            )
 
     # everything is in place, we need to fill all slots
     # first build an array with
@@ -255,7 +272,8 @@ def nsbm(
 
         # get counts for the lowest levels, cells by groups. This will be summed in the
         # parent levels, according to groupings
-        c0 = vertex_counts[0].get_2d_array(range(state.get_levels()[0].s.get_nonempty_B())).T
+#        c0 = vertex_counts[0].get_2d_array(range(state.get_levels()[0].get_nonempty_B())).T
+        c0 = l0_counts.T
         adata.uns['nsbm']['node_marginals']['level_0'] = c0
 
         l0 = "%s_level_0" % key_added
@@ -263,7 +281,7 @@ def nsbm(
             cross_tab = pd.crosstab(groups.loc[:, l0], groups.loc[:, level])
             key_name = level.replace('%s_' % key_added, '')
             cl = np.zeros((c0.shape[0], cross_tab.shape[1]), dtype=c0.dtype)
-            for x in range(c0.shape[1]):
+            for x in range(cl.shape[1]):
                 # sum counts of level_0 groups corresponding to
                 # this group at current level
                 cl[:, x] = c0[:, np.where(cross_tab.iloc[:, x] > 0)[0]].sum(axis=1)
