@@ -155,8 +155,8 @@ def nsbm(
     g = _utils.get_graph_tool_from_adjacency(adjacency, directed=directed)
 
     if use_weights:
-#        tr_weight = g.ep.weight.copy()
-#        tr_weight = np.log(tr_weight)
+        # this is not ideal to me, possibly we may need to transform
+        # weights. More tests needed.
         state = gt.minimize_nested_blockmodel_dl(g, state_args=dict(recs=[g.ep.weight],
                                                                     rec_types=['real-normal']))
     else:
@@ -165,6 +165,8 @@ def nsbm(
     bs = state.get_bs()
     if len(bs) < hierarchy_length:
         # increase hierarchy length up to the specified value
+        # according to Tiago Peixoto 10 is reasonably large as number of
+        # groups decays exponentially
         bs += [np.zeros(1)] * (hierarchy_length - len(bs))
 
     if use_weights:
@@ -192,7 +194,6 @@ def nsbm(
             # how to propagate correctly counts to higher levels
             logg.info('    also collecting marginals')
             l0_ngroups = state.get_levels()[0].get_nonempty_B()
-#            l0_counts = np.zeros((l0_ngroups, g.num_vertices()), dtype=np.int32)
             def _collect_marginals(s):
                 global l0_counts
                 l0_marginals = s.get_levels()[0].collect_vertex_marginals()
@@ -259,15 +260,13 @@ def nsbm(
     if save_state:
         adata.uns['nsbm']['state'] = state
 
-    # now add marginal probabilities. The problem here is that
-    # we have as many matrices as levels
+    # now add marginal probabilities.
 
     if collect_marginals:
         adata.uns['nsbm']['node_marginals'] = {}
 
         # get counts for the lowest levels, cells by groups. This will be summed in the
         # parent levels, according to groupings
-#        c0 = vertex_counts[0].get_2d_array(range(state.get_levels()[0].get_nonempty_B())).T
         c0 = l0_counts.T
         adata.uns['nsbm']['node_marginals']['level_0'] = c0
 
