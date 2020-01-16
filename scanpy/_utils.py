@@ -189,7 +189,7 @@ def get_graph_tool_from_adjacency(adjacency, directed=None):
     try:
         ew = g.new_edge_property("double")
         ew.a = weights
-        g.ep['edge_weights'] = ew
+        g.ep['weight'] = ew
     except:
         pass
     if g.num_vertices() != adjacency.shape[0]:

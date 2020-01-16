@@ -29,6 +29,7 @@ def nsbm(
     adjacency: Optional[sparse.spmatrix] = None,
     directed: bool = False,
     use_weights: bool = True,
+    save_state: bool = True,
     copy: bool = False,
     **partition_kwargs,
 ) -> Optional[AnnData]:
@@ -86,6 +87,9 @@ def nsbm(
     use_weights
         If `True`, edge weights from the graph are used in the computation
         (placing more emphasis on stronger edges).
+    save_state
+        Whether to keep the block model state saved for subsequent
+        custom analysis with graph-tool.
     copy
         Whether to copy `adata` or modify it inplace.
 
@@ -98,6 +102,12 @@ def nsbm(
     `adata.uns['nsbm']['params']`
         A dict with the values for the parameters `resolution`, `random_state`,
         and `n_iterations`.
+    `adata.uns['nsbm']['stats']`
+        A dict with the values returned by mcmc_sweep
+    `adata.uns['nsbm']['node_marginals']`
+        A `np.ndarray` with cell probability of belonging to a specific group
+    `adata.uns['nsbm']['state']`
+        The NestedBlockModel state object
     """
     try:
         import graph_tool.all as gt
@@ -111,6 +121,13 @@ def nsbm(
             """
         )
     partition_kwargs = dict(partition_kwargs)
+
+    if collect_marginals and not equilibrate:
+        raise ValueError(
+            "You can't collect marginals without MCMC equilibrate "
+            "step. Either set `equlibrate` to `True` or "
+            "`collect_marginals` to `False`"
+        )
 
     start = logg.info('running nested Stochastic Block Model')
     adata = adata.copy() if copy else adata
@@ -132,42 +149,129 @@ def nsbm(
         )
     # convert it to igraph
     g = _utils.get_graph_tool_from_adjacency(adjacency, directed=directed)
-    # Prepare find_partition arguments as a dictionary,
-    # appending to whatever the user provided. It needs to be this way
-    # as this allows for the accounting of a None resolution
-    # (in the case of a partition variant that doesn't take it on input)
+
     if use_weights:
-        partition_kwargs['weights'] = np.array(g.ep['edge_weight'].a).astype(np.float64)
-    partition_kwargs['n_iterations'] = n_iterations
-    partition_kwargs['seed'] = random_state
-    if resolution is not None:
-        partition_kwargs['resolution_parameter'] = resolution
-    # clustering proper
-    part = leidenalg.find_partition(g, partition_type, **partition_kwargs)
-    # store output into adata.obs
-    groups = np.array(part.membership)
-    if restrict_to is not None:
-        if key_added == 'louvain':
-            key_added += '_R'
-        groups = rename_groups(
-            adata,
-            key_added,
-            restrict_key,
-            restrict_categories,
-            restrict_indices,
-            groups,
+#        tr_weight = g.ep.weight.copy()
+#        tr_weight = np.log(tr_weight)
+        state = gt.minimize_nested_blockmodel_dl(g, state_args=dict(recs=[g.ep.weight],
+                                                                    rec_types=['real-normal']))
+    else:
+        state = gt.minimize_nested_blockmodel_dl(g)
+
+    bs = state.get_bs()
+    if len(bs) < hierarchy_length:
+        # increase hierarchy length up to the specified value
+        bs += [np.zeros(1)] * (hierarchy_length - len(bs))
+
+    if use_weights:
+        state = gt.NestedBlockState(g, bs, state_args=dict(recs=[g.ep.weight],
+                                            rec_types=["real-normal"]), sampling=True)
+    else:
+        state = state.copy(bs=bs, sampling=True)
+
+    # run the MCMC sweep step
+    logg.info('running MCMC sweep step')
+    s_dS, s_nattempts, s_nmoves = state.mcmc_sweep(niter=sweep_iterations)
+
+    # equilibrate the Markov chain
+    if equilibrate:
+        logg.info('equlibrating the Markov chain')
+        e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait, nbreaks=nbreaks, epsilon=epsilon,
+            max_niter=max_iterations, mcmc_args=dict(niter=10)
         )
-    adata.obs[key_added] = pd.Categorical(
-        values=groups.astype('U'),
-        categories=natsorted(np.unique(groups).astype('U')),
+
+    # run 1000 iterations of equilibrate just to collect marginals
+    if collect_marginals:
+        logg.info('collecting marginals')
+        vertex_counts = [None] * len(state.get_levels())
+        def collect_marginals(s):
+            global vertex_counts
+            vertex_counts = [sl.collect_vertex_marginals(vertex_counts[l]) for l, sl in enumerate(s.get_levels())]
+
+        gt.mcmc_equilibrate(state, force_niter=101, mcmc_args=dict(niter=10), wait=wait,
+            nbreaks=nbreaks, epsilon=epsilon, callback=collect_marginals
+        )
+
+    # everything is in place, we need to fill all slots
+    # first build an array with
+    groups = np.zeros((g.num_vertices(), len(bs)), dtype=int)
+    for x in range(len(bs)):
+        # for each level, project labels to the vertex level
+        # so that every cell has a name. Note that at this level
+        # the labels are not necessarily consecutive
+        groups[:, x] = [n for n in state.project_partition(x, 0)]
+
+    groups = pd.DataFrame(groups).astype('category')
+
+    # rename categories from 0 to n
+
+    for c in groups.columns:
+        new_cat_names = [u'%s' % x for x in range(len(groups.loc[:, c].cat.categories))]
+        groups.loc[:, c].cat.rename_categories(new_cat_names, inplace=True)
+
+    if restrict_to is not None:
+        groups.index = adata.obs[restrict_key].index
+    else:
+        groups.index = adata.obs_names
+
+    # add column names
+    groups.columns = ["%s_level_%d" % (key_added, level) for level in range(len(bs))]
+
+    # remove any column with the same key
+    keep_columns = [x for x in adata.obs.columns if not x.startswith('%s_level_' % key_added)]
+    adata.obs = adata.obs.loc[:, keep_columns]
+    # concatenate obs with new data
+    adata.obs = pd.concat([adata.obs, groups], axis=1)
+
+    # add some unstructured info
+
+    adata.uns['nsbm'] = {}
+    adata.uns['nsbm']['stats'] = dict(
+        sweep_dS=s_dS,
+        sweep_nattempts=s_nattempts,
+        sweep_nmoves=s_nmoves,
+        equlibrate_dS=e_dS,
+        equlibrate_nattempts=e_nattempts,
+        equlibrate_nmoves=e_nmoves,
+        level_entropy=np.array([state.level_entropy(x) for x in range(len(state.levels))] )
     )
-    # store information on the clustering parameters
-    adata.uns['leiden'] = {}
-    adata.uns['leiden']['params'] = dict(
-        resolution=resolution,
-        random_state=random_state,
-        n_iterations=n_iterations,
-    )
+    if save_state:
+        adata.uns['nsbm']['state'] = state
+
+#    adata.uns['nsbm']['params'] = dict(
+#        resolution=resolution,
+#        random_state=random_state,
+#        n_iterations=n_iterations,
+#    )
+
+
+
+
+    # now add marginal probabilities. The problem here is that
+    # we have as many matrices as levels
+
+    if collect_marginals:
+        adata.uns['nsbm']['node_marginals'] = {}
+
+        # get counts for the lowest levels, cells by groups. This will be summed in the
+        # parent levels, according to groupings
+        c0 = vertex_counts[0].get_2d_array(range(state.get_levels()[0].s.get_nonempty_B())).T
+        adata.uns['nsbm']['node_marginals']['level_0'] = c0
+
+        l0 = "%s_level_0" % key_added
+        for level in groups.columns[1:]:
+            cross_tab = pd.crosstab(groups.loc[:, l0], groups.loc[:, level])
+            key_name = level.replace('%s_' % key_added, '')
+            cl = np.zeros((c0.shape[0], cross_tab.shape[1]), dtype=c0.dtype)
+            for x in range(c0.shape[1]):
+                # sum counts of level_0 groups corresponding to
+                # this group at current level
+                cl[:, x] = c0[:, np.where(cross_tab.iloc[:, x] > 0)[0]].sum(axis=1)
+            adata.uns['nsbm']['node_marginals'][key_name] = cl
+
+
+
+
     logg.info(
         '    finished',
         time=start,
