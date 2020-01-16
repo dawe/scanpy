@@ -31,7 +31,7 @@ def nsbm(
     key_added: str = 'nsbm',
     adjacency: Optional[sparse.spmatrix] = None,
     directed: bool = False,
-    use_weights: bool = True,
+    use_weights: bool = False,
     save_state: bool = True,
     copy: bool = False,
     **mcmc_equilibrate_kwargs,
