@@ -34,7 +34,7 @@ def nsbm(
     use_weights: bool = True,
     save_state: bool = True,
     copy: bool = False,
-    **partition_kwargs,
+    **mcmc_equilibrate_kwargs,
 ) -> Optional[AnnData]:
     """\
     Cluster cells into subgroups [Peixoto14]_.
@@ -123,7 +123,7 @@ def nsbm(
             or by conda: `conda install -c conda-forge graph-tool`
             """
         )
-    partition_kwargs = dict(partition_kwargs)
+    mcmc_equilibrate_kwargs = dict(mcmc_equilibrate_kwargs)
 
     if collect_marginals and not equilibrate:
         raise ValueError(
@@ -212,6 +212,7 @@ def nsbm(
     # everything is in place, we need to fill all slots
     # first build an array with
     groups = np.zeros((g.num_vertices(), len(bs)), dtype=int)
+
     for x in range(len(bs)):
         # for each level, project labels to the vertex level
         # so that every cell has a name. Note that at this level
@@ -257,15 +258,6 @@ def nsbm(
     if save_state:
         adata.uns['nsbm']['state'] = state
 
-#    adata.uns['nsbm']['params'] = dict(
-#        resolution=resolution,
-#        random_state=random_state,
-#        n_iterations=n_iterations,
-#    )
-
-
-
-
     # now add marginal probabilities. The problem here is that
     # we have as many matrices as levels
 
@@ -289,14 +281,23 @@ def nsbm(
                 cl[:, x] = c0[:, np.where(cross_tab.iloc[:, x] > 0)[0]].sum(axis=1)
             adata.uns['nsbm']['node_marginals'][key_name] = cl
 
-
+    # last step is recording some parameters used in this analysis
+    adata.uns['nsbm']['params'] = dict(
+        sweep_iterations=sweep_iterations,
+        epsilon=epsilon,
+        wait=wait,
+        nbreaks=nbreaks,
+        equilibrate=equilibrate,
+        collect_marginals=collect_marginals,
+        hierarchy_length=hierarchy_length,
+    )
 
 
     logg.info(
         '    finished',
         time=start,
         deep=(
-            f'found {len(np.unique(groups))} clusters and added\n'
+            f'found {state.get_levels()[1].get_nonempty_B()} clusters at level_1, and added\n'
             f'    {key_added!r}, the cluster labels (adata.obs, categorical)'
         ),
     )
