@@ -237,8 +237,10 @@ def nsbm(
     # remove any column with the same key
     keep_columns = [x for x in adata.obs.columns if not x.startswith('%s_level_' % key_added)]
     adata.obs = adata.obs.loc[:, keep_columns]
-    # concatenate obs with new data
-    adata.obs = pd.concat([adata.obs, groups], axis=1)
+    # concatenate obs with new data, skipping level_0 which is usually
+    # crap. In the future it may be useful to reintegrate it
+    # we need it in this function anyway, to match groups with node marginals
+    adata.obs = pd.concat([adata.obs, groups.iloc[:, 1:]], axis=1)
 
     # add some unstructured info
 
