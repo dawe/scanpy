@@ -89,7 +89,8 @@ def nsbm(
         Whether to treat the graph as directed or undirected.
     use_weights
         If `True`, edge weights from the graph are used in the computation
-        (placing more emphasis on stronger edges).
+        (placing more emphasis on stronger edges). Note that this
+        increases computation times
     save_state
         Whether to keep the block model state saved for subsequent
         custom analysis with graph-tool.
