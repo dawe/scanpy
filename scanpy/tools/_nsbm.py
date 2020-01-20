@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from natsort import natsorted
 from anndata import AnnData
-from numpy.random.mtrand import RandomState
 from scipy import sparse
 
 from .. import _utils
@@ -27,7 +26,7 @@ def nsbm(
     hierarchy_length: int = 10,
     *,
     restrict_to: Optional[Tuple[str, Sequence[str]]] = None,
-    random_state: Optional[Union[int, RandomState]] = 0,
+    random_seed: Optional[int] = None,
     key_added: str = 'nsbm',
     adjacency: Optional[sparse.spmatrix] = None,
     directed: bool = False,
@@ -96,7 +95,8 @@ def nsbm(
         custom analysis with graph-tool.
     copy
         Whether to copy `adata` or modify it inplace.
-
+    random_seed
+        Random number to be used as seed for graph-tool
     Returns
     -------
     `adata.obs[key_added]`
@@ -124,7 +124,11 @@ def nsbm(
             or by conda: `conda install -c conda-forge graph-tool`
             """
         )
-    mcmc_equilibrate_kwargs = dict(mcmc_equilibrate_kwargs)
+    mcmc_equilibrate_kwargs = dict(mcmc_equilibrate_kwargs) #to be fixed
+
+    if random_seed:
+        np.random.seed(random_seed)
+        gt.seed_rng(random_seed)
 
     if collect_marginals and not equilibrate:
         raise ValueError(
