@@ -180,7 +180,7 @@ def get_igraph_from_adjacency(adjacency, directed=None):
 def get_graph_tool_from_adjacency(adjacency, directed=None):
     """Get graph-tool graph from adjacency matrix."""
     import graph_tool.all as gt
-    idx = adjacency.nonzero()
+    idx = anp.nonzero(np.triu(adjacency.todense(),1))
     weights = adjacency[idx]
     if isinstance(weights, np.matrix):
         weights = weights.A1
