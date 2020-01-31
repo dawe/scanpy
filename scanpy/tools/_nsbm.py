@@ -108,7 +108,7 @@ def nsbm(
         and `n_iterations`.
     `adata.uns['nsbm']['stats']`
         A dict with the values returned by mcmc_sweep
-    `adata.uns['nsbm']['node_marginals']`
+    `adata.uns['nsbm']['cell_marginals']`
         A `np.ndarray` with cell probability of belonging to a specific group
     `adata.uns['nsbm']['state']`
         The NestedBlockModel state object
@@ -267,12 +267,12 @@ def nsbm(
     # now add marginal probabilities.
 
     if collect_marginals:
-        adata.uns['nsbm']['node_marginals'] = {}
+        adata.uns['nsbm']['cell_marginals'] = {}
 
         # get counts for the lowest levels, cells by groups. This will be summed in the
         # parent levels, according to groupings
         c0 = l0_counts.T
-        adata.uns['nsbm']['node_marginals']['level_0'] = c0
+        adata.uns['nsbm']['cell_marginals']['level_0'] = c0
 
         l0 = "%s_level_0" % key_added
         for level in groups.columns[1:]:
@@ -283,7 +283,7 @@ def nsbm(
                 # sum counts of level_0 groups corresponding to
                 # this group at current level
                 cl[:, x] = c0[:, np.where(cross_tab.iloc[:, x] > 0)[0]].sum(axis=1)
-            adata.uns['nsbm']['node_marginals'][key_name] = cl
+            adata.uns['nsbm']['cell_marginals'][key_name] = cl
 
     # last step is recording some parameters used in this analysis
     adata.uns['nsbm']['params'] = dict(
