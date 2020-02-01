@@ -197,15 +197,13 @@ def nsbm(
             # we here only retain level_0 counts, until I can't figure out
             # how to propagate correctly counts to higher levels
             logg.info('    also collecting marginals')
-            l0_ngroups = state.get_levels()[0].get_nonempty_B()
             def _collect_marginals(s):
-                global l0_counts
-                l0_marginals = s.get_levels()[0].collect_vertex_marginals()
-                l0_marginals = l0_marginals.get_2d_array(range(l0_ngroups))
+                levels = s.get_levels()
+                global cell_marginals
                 try:
-                    l0_counts += l0_marginals
+                    cell_marginals = [sl.collect_vertex_marginals(cell_marginals[l]) for l, sl in enumerate(levels)]
                 except NameError:
-                    l0_counts = np.zeros((l0_ngroups, g.num_vertices()), dtype=np.int32)
+                    cell_marginals = [None] * len(state.get_levels())
 
             e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
                                                             nbreaks=nbreaks,
@@ -271,6 +269,8 @@ def nsbm(
 
         # get counts for the lowest levels, cells by groups. This will be summed in the
         # parent levels, according to groupings
+        l0_ngroups = state.get_levels()[0].get_nonempty_B()
+        l0_counts = cell_marginals[0].get_2d_array(range(l0_ngroups))
         c0 = l0_counts.T
         adata.uns['nsbm']['cell_marginals']['level_0'] = c0
 
