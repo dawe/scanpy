@@ -209,8 +209,11 @@ def nsbm(
                     cell_marginals = [sl.collect_vertex_marginals(cell_marginals[l]) for l, sl in enumerate(levels)]
                 except NameError:
                     cell_marginals = [None] * len(s.get_levels())
-#                except ValueError:
-#                    pass
+                except ValueError:
+                    # due to the way gt updates vertex marginals and the usage
+                    # of global variables, our counter is persistent during the
+                    # execution. For this we need to reinitialize it
+                    cell_marginals = [None] * len(s.get_levels())
 
             e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
                                                             nbreaks=nbreaks,
