@@ -298,7 +298,7 @@ def nsbm(
                 cl[:, x] = c0[:, np.where(cross_tab.iloc[:, x] > 0)[0]].sum(axis=1)
             adata.uns['nsbm']['cell_marginals'][key_name] = cl
         # delete global variables (safety?)
-        del cell_marginals
+#        del cell_marginals
 
     # last step is recording some parameters used in this analysis
     adata.uns['nsbm']['params'] = dict(
