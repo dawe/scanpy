@@ -68,7 +68,7 @@ def nsbm(
     collect_marginals
         whether or not collect node probability of belonging
         to a specific partition.
-    force_niter 
+    force_niter
         number of iterations for collecting cell marginals
     wait
         Number of iterations to wait for a record-breaking event.
@@ -205,7 +205,7 @@ def nsbm(
                 try:
                     cell_marginals = [sl.collect_vertex_marginals(cell_marginals[l]) for l, sl in enumerate(levels)]
                 except NameError:
-                    cell_marginals = [None] * len(state.get_levels())
+                    cell_marginals = [None] * len(s.get_levels())
                 except ValueError:
                 	pass
 
