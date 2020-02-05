@@ -206,8 +206,8 @@ def nsbm(
                     cell_marginals = [sl.collect_vertex_marginals(cell_marginals[l]) for l, sl in enumerate(levels)]
                 except NameError:
                     cell_marginals = [None] * len(s.get_levels())
-                except ValueError:
-                	pass
+#                except ValueError:
+#                	pass
 
             e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
                                                             nbreaks=nbreaks,
