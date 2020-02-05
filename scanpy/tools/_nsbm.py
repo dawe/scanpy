@@ -141,7 +141,7 @@ def nsbm(
             "`collect_marginals` to `False`"
         )
 
-    start = logg.info('running nested Stochastic Block Model')
+    start = logg.info('minimizing the nested Stochastic Block Model')
     adata = adata.copy() if copy else adata
     # are we clustering a user-provided graph or the default AnnData one?
     if adjacency is None:
@@ -169,7 +169,7 @@ def nsbm(
                                                                     rec_types=['real-normal']))
     else:
         state = gt.minimize_nested_blockmodel_dl(g)
-
+    logg.info('    done', time=start)
     bs = state.get_bs()
     if len(bs) < hierarchy_length:
         # increase hierarchy length up to the specified value
@@ -184,22 +184,24 @@ def nsbm(
         state = state.copy(bs=bs, sampling=True)
 
     # run the MCMC sweep step
-    logg.info(f'running MCMC sweep step with {sweep_iterations} iterations', time=start)
+    logg.info(f'running MCMC sweep step with {sweep_iterations} iterations')
     s_dS, s_nattempts, s_nmoves = state.mcmc_sweep(niter=sweep_iterations)
+    logg.info('    done', time=start)
 
     # equilibrate the Markov chain
     if equilibrate:
-        logg.info('running MCMC equilibration step', time=start)
+        logg.info('running MCMC equilibration step')
         e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
                                                             nbreaks=nbreaks,
                                                             epsilon=epsilon,
                                                             max_niter=max_iterations,
                                                             mcmc_args=dict(niter=10)
                                                             )
+        logg.info('    done', time=start)
         if collect_marginals:
             # we here only retain level_0 counts, until I can't figure out
             # how to propagate correctly counts to higher levels
-            logg.info('    also collecting marginals', time=start)
+            logg.info('    also collecting marginals')
             def _collect_marginals(s):
                 levels = s.get_levels()
                 global cell_marginals
@@ -216,8 +218,10 @@ def nsbm(
                                                             force_niter=force_niter + 1,
                                                             max_niter=max_iterations,
                                                             mcmc_args=dict(niter=10),
-                                                            callback=_collect_marginals
+                                                            callback=_collect_marginals,
+                                                            verbose=True
                                                             )
+            logg.info('        done', time=start)
 
     # everything is in place, we need to fill all slots
     # first build an array with
