@@ -184,12 +184,12 @@ def nsbm(
         state = state.copy(bs=bs, sampling=True)
 
     # run the MCMC sweep step
-    logg.info(f'running MCMC sweep step with {sweep_iterations} iterations')
+    logg.info(f'running MCMC sweep step with {sweep_iterations} iterations', time=start)
     s_dS, s_nattempts, s_nmoves = state.mcmc_sweep(niter=sweep_iterations)
 
     # equilibrate the Markov chain
     if equilibrate:
-        logg.info('running MCMC equilibration step')
+        logg.info('running MCMC equilibration step', time=start)
         e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
                                                             nbreaks=nbreaks,
                                                             epsilon=epsilon,
@@ -199,7 +199,7 @@ def nsbm(
         if collect_marginals:
             # we here only retain level_0 counts, until I can't figure out
             # how to propagate correctly counts to higher levels
-            logg.info('    also collecting marginals')
+            logg.info('    also collecting marginals', time=start)
             def _collect_marginals(s):
                 levels = s.get_levels()
                 global cell_marginals
