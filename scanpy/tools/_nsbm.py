@@ -32,7 +32,7 @@ def nsbm(
     adjacency: Optional[sparse.spmatrix] = None,
     directed: bool = False,
     use_weights: bool = False,
-    save_state: bool = True,
+    save_state: bool = False,
     copy: bool = False,
     **mcmc_equilibrate_kwargs,
 ) -> Optional[AnnData]:
@@ -95,7 +95,8 @@ def nsbm(
         increases computation times
     save_state
         Whether to keep the block model state saved for subsequent
-        custom analysis with graph-tool.
+        custom analysis with graph-tool. Use only for debug session, state
+        is not (yet) supported for `sc.write` function
     copy
         Whether to copy `adata` or modify it inplace.
     random_seed
