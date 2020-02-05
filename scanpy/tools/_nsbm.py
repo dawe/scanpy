@@ -201,7 +201,7 @@ def nsbm(
         if collect_marginals:
             # we here only retain level_0 counts, until I can't figure out
             # how to propagate correctly counts to higher levels
-            logg.info('    also collecting marginals')
+            logg.info('collecting cell marginals')
             def _collect_marginals(s):
                 levels = s.get_levels()
                 global cell_marginals
@@ -210,7 +210,7 @@ def nsbm(
                 except NameError:
                     cell_marginals = [None] * len(s.get_levels())
 #                except ValueError:
-#                	pass
+#                    pass
 
             e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
                                                             nbreaks=nbreaks,
@@ -219,9 +219,9 @@ def nsbm(
                                                             max_niter=max_iterations,
                                                             mcmc_args=dict(niter=10),
                                                             callback=_collect_marginals,
-                                                            verbose=True
+                                                            verbose=False
                                                             )
-            logg.info('        done', time=start)
+            logg.info('    done', time=start)
 
     # everything is in place, we need to fill all slots
     # first build an array with
@@ -261,17 +261,19 @@ def nsbm(
 
     adata.uns['nsbm'] = {}
     if equilibrate:
-    	adata.uns['nsbm']['stats'] = dict(
+        adata.uns['nsbm']['stats'] = dict(
         sweep_dS=s_dS,
         sweep_nattempts=s_nattempts,
         sweep_nmoves=s_nmoves,
-      	equlibrate_dS=e_dS,
+        equlibrate_dS=e_dS,
         equlibrate_nattempts=e_nattempts,
         equlibrate_nmoves=e_nmoves,
         level_entropy=np.array([state.level_entropy(x) for x in range(len(state.levels))])
         )
+        if cell_marginals:
+            adata.uns['nsbm']['stats']['mf_entropy'] = np.array([gt.mf_entropy(sl.g, cell_marginals[l]) for l, sl in enumerate(state.get_levels())])
     else:
-    	adata.uns['nsbm']['stats'] = dict(
+        adata.uns['nsbm']['stats'] = dict(
         sweep_dS=s_dS,
         sweep_nattempts=s_nattempts,
         sweep_nmoves=s_nmoves,
