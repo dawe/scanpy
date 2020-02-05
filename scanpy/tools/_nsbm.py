@@ -23,6 +23,7 @@ def nsbm(
     wait: int = 1000,
     nbreaks: int = 2,
     collect_marginals: bool = True,
+    force_niter: int = 1000,
     hierarchy_length: int = 10,
     *,
     restrict_to: Optional[Tuple[str, Sequence[str]]] = None,
@@ -67,6 +68,8 @@ def nsbm(
     collect_marginals
         whether or not collect node probability of belonging
         to a specific partition.
+    force_niter 
+        number of iterations for collecting cell marginals
     wait
         Number of iterations to wait for a record-breaking event.
         Higher values result in longer computations. Set it to small values
@@ -186,14 +189,13 @@ def nsbm(
     # equilibrate the Markov chain
     if equilibrate:
         logg.info('equlibrating the Markov chain')
-        if not collect_marginals:
-          e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
+        e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
                                                             nbreaks=nbreaks,
                                                             epsilon=epsilon,
                                                             max_niter=max_iterations,
                                                             mcmc_args=dict(niter=10)
                                                             )
-        else:
+        if collect_marginals:
             # we here only retain level_0 counts, until I can't figure out
             # how to propagate correctly counts to higher levels
             logg.info('    also collecting marginals')
@@ -208,6 +210,7 @@ def nsbm(
             e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
                                                             nbreaks=nbreaks,
                                                             epsilon=epsilon,
+                                                            force_niter=force_niter + 1,
                                                             max_niter=max_iterations,
                                                             mcmc_args=dict(niter=10),
                                                             callback=_collect_marginals
@@ -291,6 +294,8 @@ def nsbm(
                 # this group at current level
                 cl[:, x] = c0[:, np.where(cross_tab.iloc[:, x] > 0)[0]].sum(axis=1)
             adata.uns['nsbm']['cell_marginals'][key_name] = cl
+        # delete global variables (safety?)
+        del cell_marginals
 
     # last step is recording some parameters used in this analysis
     adata.uns['nsbm']['params'] = dict(
