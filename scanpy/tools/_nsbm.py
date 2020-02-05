@@ -184,12 +184,12 @@ def nsbm(
         state = state.copy(bs=bs, sampling=True)
 
     # run the MCMC sweep step
-    logg.info('running MCMC sweep step')
+    logg.info(f'running MCMC sweep step with {sweep_iterations} iterations')
     s_dS, s_nattempts, s_nmoves = state.mcmc_sweep(niter=sweep_iterations)
 
     # equilibrate the Markov chain
     if equilibrate:
-        logg.info('equlibrating the Markov chain')
+        logg.info('running MCMC equilibration step')
         e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
                                                             nbreaks=nbreaks,
                                                             epsilon=epsilon,
