@@ -22,7 +22,7 @@ def nsbm(
     equilibrate: bool = True,
     wait: int = 1000,
     nbreaks: int = 2,
-    collect_marginals: bool = True,
+    collect_marginals: bool = False,
     hierarchy_length: int = 10,
     *,
     restrict_to: Optional[Tuple[str, Sequence[str]]] = None,
@@ -129,12 +129,14 @@ def nsbm(
         np.random.seed(random_seed)
         gt.seed_rng(random_seed)
 
-    if collect_marginals and not equilibrate:
-        raise ValueError(
-            "You can't collect marginals without MCMC equilibrate "
-            "step. Either set `equlibrate` to `True` or "
-            "`collect_marginals` to `False`"
-        )
+    if collect_marginals:
+        logg.warning('Collecting marginals has a large impact on running time')
+        if not equilibrate:
+            raise ValueError(
+                "You can't collect marginals without MCMC equilibrate "
+                "step. Either set `equlibrate` to `True` or "
+                "`collect_marginals` to `False`"
+            )
 
     start = logg.info('minimizing the nested Stochastic Block Model')
     adata = adata.copy() if copy else adata
@@ -196,9 +198,10 @@ def nsbm(
         else:
             # we here only retain level_0 counts, until I can't figure out
             # how to propagate correctly counts to higher levels
-            logg.info('    collecting cell marginals')
+            logg.info('    collecting marginals')
             def _collect_marginals(s):
                 levels = s.get_levels()
+
                 global cell_marginals
                 try:
                     cell_marginals = [sl.collect_vertex_marginals(cell_marginals[l]) for l, sl in enumerate(levels)]
