@@ -314,7 +314,7 @@ def nsbm(
                 # sum counts of level_0 groups corresponding to
                 # this group at current level
                 cl[:, x] = c0[:, np.where(cross_tab.iloc[:, x] > 0)[0]].sum(axis=1)
-                pl = cl / np.sum(cl, axis=1)
+                pl = cl / np.sum(cl, axis=1)[:, None]
             adata.uns['nsbm']['cell_marginals'].append(pl)
         # refrain group marginals. We collected data in vector as long as
         # the number of cells, cut them into appropriate length data
