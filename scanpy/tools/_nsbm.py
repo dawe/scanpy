@@ -303,7 +303,7 @@ def nsbm(
         l0_ngroups = state.get_levels()[0].get_nonempty_B()
         l0_counts = cell_marginals[0].get_2d_array(range(l0_ngroups))
         c0 = l0_counts.T
-        p0 = c0 / np.sum(c0)
+        p0 = c0 / np.sum(c0, axis=1)[:, None]
         adata.uns['nsbm']['cell_marginals'] = [p0]
 
         l0 = "%s_level_0" % key_added
