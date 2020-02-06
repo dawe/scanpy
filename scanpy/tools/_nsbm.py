@@ -206,18 +206,15 @@ def nsbm(
             group_marginals = [np.zeros(g.num_vertices() + 1) for s in state.get_levels()]
             def _collect_marginals(s):
                 levels = s.get_levels()
+                for l, sl in enumerate(levels):
+                    group_marginals[l][sl.get_nonempty_B()] += 1
+
                 # cell marginals need a global variable. It is a mess but this
                 # is due to the way collect_vertex_marginals works.
                 global cell_marginals
                 try:
-                    for l, sl in enumerate(levels):
-                        cell_marginals = sl.collect_vertex_marginals(cell_marginals[l])
-                        group_marginals[l][sl.get_nonempty_B()] += 1
-#                    cell_marginals = [sl.collect_vertex_marginals(cell_marginals[l]) for l, sl in enumerate(levels)]
-                except NameError:
-                    # Initialize cell_marginals, we will miss an iteration.
-                    cell_marginals = [None] * len(s.get_levels())
-                except ValueError:
+                    cell_marginals = [sl.collect_vertex_marginals(cell_marginals[l]) for l, sl in enumerate(levels)]
+                except (NameError, ValueError):
                     # due to the way gt updates vertex marginals and the usage
                     # of global variables, our counter is persistent during the
                     # execution. For this we need to reinitialize it
@@ -282,9 +279,15 @@ def nsbm(
         equlibrate_nmoves=e_nmoves,
         ))
         if collect_marginals:
-            adata.uns['nsbm']['stats']['mf_entropy'] = np.array([gt.mf_entropy(sl.g, cell_marginals[l]) for l, sl in enumerate(state.get_levels())])
+            adata.uns['nsbm']['stats']['mf_entropy'] = np.array([gt.mf_entropy(sl.g,
+                                                                 cell_marginals[l])
+                                                                 for l, sl in
+                                                                 enumerate(state.get_levels())])
 
     if save_state:
+        logg.warning("""It is not possible to dump on the disk `adata` objects'
+         when `state` is saved into `adata.uns`.
+         Remove it with `.pop` before saving data in .h5ad format""")
         adata.uns['nsbm']['state'] = state
 
     # now add marginal probabilities.
