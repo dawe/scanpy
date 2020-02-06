@@ -24,6 +24,7 @@ def nsbm(
     nbreaks: int = 2,
     collect_marginals: bool = False,
     hierarchy_length: int = 10,
+    deg_corr: bool = True,
     *,
     restrict_to: Optional[Tuple[str, Sequence[str]]] = None,
     random_seed: Optional[int] = None,
@@ -78,6 +79,9 @@ def nsbm(
         passed, the top-most levels will be uninformative as they
         will likely contain the very same groups. Increase this valus
         if a very large number of cells is analyzed (>100.000).
+    deg_corr
+        Whether to use degree correction in the minimization step. Usually
+        this should be the case for real-world networks.
     key_added
         `adata.obs` key under which to add the cluster labels.
     adjacency
@@ -199,14 +203,19 @@ def nsbm(
             # we here only retain level_0 counts, until I can't figure out
             # how to propagate correctly counts to higher levels
             logg.info('    collecting marginals')
+            group_marginals = [np.zeros(g.num_vertices() + 1) for s in state.get_levels()]
             def _collect_marginals(s):
                 levels = s.get_levels()
-
+                # cell marginals need a global variable. It is a mess but this
+                # is due to the way collect_vertex_marginals works.
                 global cell_marginals
                 try:
-                    cell_marginals = [sl.collect_vertex_marginals(cell_marginals[l]) for l, sl in enumerate(levels)]
+                    for l, sl in enumerate(levels):
+                        cell_marginals = sl.collect_vertex_marginals(cell_marginals[l])
+                        group_marginals[l][sl.get_nonempty_B()] += 1
+#                    cell_marginals = [sl.collect_vertex_marginals(cell_marginals[l]) for l, sl in enumerate(levels)]
                 except NameError:
-                    # Initialize cell_marginals
+                    # Initialize cell_marginals, we will miss an iteration.
                     cell_marginals = [None] * len(s.get_levels())
                 except ValueError:
                     # due to the way gt updates vertex marginals and the usage
@@ -281,25 +290,34 @@ def nsbm(
     # now add marginal probabilities.
 
     if collect_marginals:
-        adata.uns['nsbm']['cell_marginals'] = {}
+        # cell marginals will be a list of arrays with probabilities
+        # of belonging to a specific group
 
         # get counts for the lowest levels, cells by groups. This will be summed in the
         # parent levels, according to groupings
         l0_ngroups = state.get_levels()[0].get_nonempty_B()
         l0_counts = cell_marginals[0].get_2d_array(range(l0_ngroups))
         c0 = l0_counts.T
-        adata.uns['nsbm']['cell_marginals']['level_0'] = c0
+        p0 = c0 / np.sum(c0)
+        adata.uns['nsbm']['cell_marginals'] = [p0]
 
         l0 = "%s_level_0" % key_added
         for level in groups.columns[1:]:
             cross_tab = pd.crosstab(groups.loc[:, l0], groups.loc[:, level])
-            key_name = level.replace('%s_' % key_added, '')
             cl = np.zeros((c0.shape[0], cross_tab.shape[1]), dtype=c0.dtype)
             for x in range(cl.shape[1]):
                 # sum counts of level_0 groups corresponding to
                 # this group at current level
                 cl[:, x] = c0[:, np.where(cross_tab.iloc[:, x] > 0)[0]].sum(axis=1)
-            adata.uns['nsbm']['cell_marginals'][key_name] = cl
+                pl = cl / np.sum(cl)
+            adata.uns['nsbm']['cell_marginals'].append(pl)
+        # refrain group marginals. We collected data in vector as long as
+        # the number of cells, cut them into appropriate length data
+        adata.uns['nsbm']['group_marginals'] = []
+        for level_marginals in group_marginals:
+            idx = np.where(level_marginals > 0)[0] + 1
+            p_marginals = level_marginals[:np.max(idx)] / np.sum(level_marginals)
+            adata.uns['nsbm']['group_marginals'].append(p_marginals)
         # delete global variables (safety?)
 #        del cell_marginals
 
