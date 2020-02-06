@@ -257,25 +257,21 @@ def nsbm(
     # add some unstructured info
 
     adata.uns['nsbm'] = {}
+    adata.uns['nsbm']['stats'] = dict(
+    sweep_dS=s_dS,
+    sweep_nattempts=s_nattempts,
+    sweep_nmoves=s_nmoves,
+    level_entropy=np.array([state.level_entropy(x) for x in range(len(state.levels))])
+    )
     if equilibrate:
-        adata.uns['nsbm']['stats'] = dict(
-        sweep_dS=s_dS,
-        sweep_nattempts=s_nattempts,
-        sweep_nmoves=s_nmoves,
+        adata.uns['nsbm']['stats'].update(dict(
         equlibrate_dS=e_dS,
         equlibrate_nattempts=e_nattempts,
         equlibrate_nmoves=e_nmoves,
-        level_entropy=np.array([state.level_entropy(x) for x in range(len(state.levels))])
-        )
-        if cell_marginals:
+        ))
+        if collect_marginals:
             adata.uns['nsbm']['stats']['mf_entropy'] = np.array([gt.mf_entropy(sl.g, cell_marginals[l]) for l, sl in enumerate(state.get_levels())])
-    else:
-        adata.uns['nsbm']['stats'] = dict(
-        sweep_dS=s_dS,
-        sweep_nattempts=s_nattempts,
-        sweep_nmoves=s_nmoves,
-        level_entropy=np.array([state.level_entropy(x) for x in range(len(state.levels))])
-        )
+
     if save_state:
         adata.uns['nsbm']['state'] = state
 
