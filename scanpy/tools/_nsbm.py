@@ -303,7 +303,7 @@ def nsbm(
         l0_ngroups = state.get_levels()[0].get_nonempty_B()
         l0_counts = cell_marginals[0].get_2d_array(range(l0_ngroups))
         c0 = l0_counts.T
-        adata.uns['nsbm']['cell_marginals'][0] = c0
+        adata.uns['nsbm']['cell_marginals']['level_0'] = c0
 
         l0 = "%s_level_0" % key_added
         for level in groups.columns[1:]:
@@ -313,7 +313,7 @@ def nsbm(
                 # sum counts of level_0 groups corresponding to
                 # this group at current level
                 cl[:, x] = c0[:, np.where(cross_tab.iloc[:, x] > 0)[0]].sum(axis=1)
-            adata.uns['nsbm']['cell_marginals'][x + 1] = cl
+            adata.uns['nsbm']['cell_marginals']['level_d' % x + 1] = cl
         # refrain group marginals. We collected data in vector as long as
         # the number of cells, cut them into appropriate length data
         adata.uns['nsbm']['group_marginals'] = []
