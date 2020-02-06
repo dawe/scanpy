@@ -167,10 +167,11 @@ def nsbm(
     if use_weights:
         # this is not ideal to me, possibly we may need to transform
         # weights. More tests needed.
-        state = gt.minimize_nested_blockmodel_dl(g, state_args=dict(recs=[g.ep.weight],
-                                                                    rec_types=['real-normal']))
+        state = gt.minimize_nested_blockmodel_dl(g, deg_corr=deg_corr
+                                                 state_args=dict(recs=[g.ep.weight],
+                                                 rec_types=['real-normal']))
     else:
-        state = gt.minimize_nested_blockmodel_dl(g)
+        state = gt.minimize_nested_blockmodel_dl(g, deg_corr=deg_corr)
     logg.info('    done', time=start)
     bs = state.get_bs()
     if len(bs) < hierarchy_length:
