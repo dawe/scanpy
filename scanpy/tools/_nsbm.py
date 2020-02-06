@@ -24,7 +24,7 @@ def nsbm(
     nbreaks: int = 2,
     collect_marginals: bool = False,
     hierarchy_length: int = 10,
-    deg_corr: bool = True,
+    deg_corr: bool = False,
     *,
     restrict_to: Optional[Tuple[str, Sequence[str]]] = None,
     random_seed: Optional[int] = None,
@@ -80,8 +80,9 @@ def nsbm(
         will likely contain the very same groups. Increase this valus
         if a very large number of cells is analyzed (>100.000).
     deg_corr
-        Whether to use degree correction in the minimization step. Usually
-        this should be the case for real-world networks.
+        Whether to use degree correction in the minimization step. In many
+        real world networks this is the case, although this doesn't seem
+        the case for KNN graphs used in scanpy.
     key_added
         `adata.obs` key under which to add the cluster labels.
     adjacency
