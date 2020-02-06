@@ -167,7 +167,7 @@ def nsbm(
     if use_weights:
         # this is not ideal to me, possibly we may need to transform
         # weights. More tests needed.
-        state = gt.minimize_nested_blockmodel_dl(g, deg_corr=deg_corr
+        state = gt.minimize_nested_blockmodel_dl(g, deg_corr=deg_corr,
                                                  state_args=dict(recs=[g.ep.weight],
                                                  rec_types=['real-normal']))
     else:
