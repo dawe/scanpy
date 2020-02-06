@@ -303,8 +303,7 @@ def nsbm(
         l0_ngroups = state.get_levels()[0].get_nonempty_B()
         l0_counts = cell_marginals[0].get_2d_array(range(l0_ngroups))
         c0 = l0_counts.T
-        p0 = c0 / np.sum(c0, axis=1)[:, None]
-        adata.uns['nsbm']['cell_marginals'] = [p0]
+        adata.uns['nsbm']['cell_marginals'] = [c0]
 
         l0 = "%s_level_0" % key_added
         for level in groups.columns[1:]:
@@ -314,15 +313,13 @@ def nsbm(
                 # sum counts of level_0 groups corresponding to
                 # this group at current level
                 cl[:, x] = c0[:, np.where(cross_tab.iloc[:, x] > 0)[0]].sum(axis=1)
-                pl = cl / np.sum(cl, axis=1)[:, None]
-            adata.uns['nsbm']['cell_marginals'].append(pl)
+            adata.uns['nsbm']['cell_marginals'].append(cl)
         # refrain group marginals. We collected data in vector as long as
         # the number of cells, cut them into appropriate length data
         adata.uns['nsbm']['group_marginals'] = []
         for level_marginals in group_marginals:
             idx = np.where(level_marginals > 0)[0] + 1
-            p_marginals = level_marginals[:np.max(idx)] / np.sum(level_marginals)
-            adata.uns['nsbm']['group_marginals'].append(p_marginals)
+            adata.uns['nsbm']['group_marginals'].append(level_marginals[:np.max(idx)])
         # delete global variables (safety?)
 #        del cell_marginals
 
