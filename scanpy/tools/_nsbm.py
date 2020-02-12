@@ -188,7 +188,7 @@ def nsbm(
 
     # run the MCMC sweep step
     logg.info(f'running MCMC sweep step with {sweep_iterations} iterations')
-    s_dS, s_nattempts, s_nmoves = state.mcmc_sweep(niter=sweep_iterations)
+    s_dS, s_nattempts, s_nmoves = state.multiflip_mcmc_sweep(niter=sweep_iterations)
     logg.info('    done', time=start)
 
     # equilibrate the Markov chain
