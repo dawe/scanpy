@@ -199,6 +199,7 @@ def nsbm(
                                                             nbreaks=nbreaks,
                                                             epsilon=epsilon,
                                                             max_niter=max_iterations,
+                                                            multiflip=True
                                                             mcmc_args=dict(niter=10)
                                                             )
         else:
@@ -226,6 +227,7 @@ def nsbm(
                                                             nbreaks=nbreaks,
                                                             epsilon=epsilon,
                                                             max_niter=max_iterations,
+                                                            multiflip=True
                                                             mcmc_args=dict(niter=10),
                                                             callback=_collect_marginals,
                                                             )
