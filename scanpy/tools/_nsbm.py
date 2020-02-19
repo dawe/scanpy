@@ -16,7 +16,7 @@ from ._utils_clustering import rename_groups, restrict_adjacency
 
 def nsbm(
     adata: AnnData,
-    sweep_iterations: int = 100000,
+    sweep_iterations: int = 10000,
     max_iterations: int = 1000000,
     epsilon: float = 1e-3,
     equilibrate: bool = True,
@@ -199,7 +199,7 @@ def nsbm(
                                                             nbreaks=nbreaks,
                                                             epsilon=epsilon,
                                                             max_niter=max_iterations,
-                                                            multiflip=False,
+                                                            multiflip=True,
                                                             mcmc_args=dict(niter=10)
                                                             )
         else:
@@ -227,7 +227,7 @@ def nsbm(
                                                             nbreaks=nbreaks,
                                                             epsilon=epsilon,
                                                             max_niter=max_iterations,
-                                                            multiflip=False,
+                                                            multiflip=True,
                                                             mcmc_args=dict(niter=10),
                                                             callback=_collect_marginals,
                                                             )
@@ -275,7 +275,8 @@ def nsbm(
     sweep_nattempts=s_nattempts,
     sweep_nmoves=s_nmoves,
     level_entropy=np.array([state.level_entropy(x) for x in range(len(state.levels))]),
-    modularity=np.array([gt.modularity(g, state.project_partition(x, 0)) for x in range(len((state.levels)))])
+    modularity=np.array([gt.modularity(g, state.project_partition(x, 0))
+                         for x in range(len((state.levels)))])
     )
     if equilibrate:
         adata.uns['nsbm']['stats'].update(dict(
