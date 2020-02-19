@@ -274,7 +274,8 @@ def nsbm(
     sweep_dS=s_dS,
     sweep_nattempts=s_nattempts,
     sweep_nmoves=s_nmoves,
-    level_entropy=np.array([state.level_entropy(x) for x in range(len(state.levels))])
+    level_entropy=np.array([state.level_entropy(x) for x in range(len(state.levels))]),
+    modularity=np.array([gt.modularity(g, state.project_partition(x, 0)) for x in range(len((state.levels)))])
     )
     if equilibrate:
         adata.uns['nsbm']['stats'].update(dict(
