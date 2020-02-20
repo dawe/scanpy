@@ -245,10 +245,8 @@ def nsbm(
     groups = pd.DataFrame(groups).astype('category')
 
     # rename categories from 0 to n
-
     for c in groups.columns:
-        LE = LabelEncoder()
-        new_cat_names = [u'%s' % x for x in range(len(groups.loc[:, c].cat.categories))]
+        new_cat_names = dict([(cx, u'%s' % cn) for cn, cx in enumerate(a.cat.categories)])
         groups.loc[:, c].cat.rename_categories(new_cat_names, inplace=True)
 
     if restrict_to is not None:
