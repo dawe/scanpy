@@ -5,7 +5,6 @@ import pandas as pd
 from natsort import natsorted
 from anndata import AnnData
 from scipy import sparse
-from sklearn.preprocessing import LabelEncoder
 
 from .. import _utils
 from .. import logging as logg
@@ -241,20 +240,16 @@ def nsbm(
         # for each level, project labels to the vertex level
         # so that every cell has a name. Note that at this level
         # the labels are not necessarily consecutive
-        groups[:, x] = [n for n in state.project_partition(x, 0)]
+        groups[:, x] = state.project_partition(x, 0).get_array()
 
     groups = pd.DataFrame(groups).astype('category')
 
     # rename categories from 0 to n
-    # also use label encoders to keep track of the transform, useful later
-    # to build the tree
 
-    label_encoders = []
     for c in groups.columns:
         LE = LabelEncoder()
-        new_cat_names = pd.Categorical(LE.fit_transform(groups.loc[:, c]))
-        groups.loc[:, c] = new_cat_names
-        label_encoders.append(LE)
+        new_cat_names = [u'%s' % x for x in range(len(groups.loc[:, c].cat.categories))]
+        groups.loc[:, c].cat.rename_categories(new_cat_names, inplace=True)
 
     if restrict_to is not None:
         groups.index = adata.obs[restrict_key].index
@@ -290,6 +285,8 @@ def nsbm(
         equlibrate_nmoves=e_nmoves,
         ))
         if collect_marginals:
+            # since we have cell marginals we can also calculate
+            # mean field entropy.
             adata.uns['nsbm']['stats']['mf_entropy'] = np.array([gt.mf_entropy(sl.g,
                                                                  cell_marginals[l])
                                                                  for l, sl in
