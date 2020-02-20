@@ -24,7 +24,7 @@ def nsbm(
     wait: int = 1000,
     nbreaks: int = 2,
     collect_marginals: bool = False,
-    collect_niter: int 10000,
+    collect_niter: int = 10000,
     hierarchy_length: int = 10,
     deg_corr: bool = False,
     *,
@@ -229,8 +229,8 @@ def nsbm(
 
             gt.mcmc_equilibrate(state, wait=wait, nbreaks=nbreaks, epsilon=epsilon,
                                 max_niter=max_iterations, multiflip=True,
-                                force_niter=collect_niter,
-                                mcmc_args=dict(niter=10),callback=_collect_marginals)
+                                force_niter=collect_niter, mcmc_args=dict(niter=10),
+                                callback=_collect_marginals)
             logg.info('    done', time=start)
 
     # everything is in place, we need to fill all slots
