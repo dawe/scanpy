@@ -24,6 +24,7 @@ def nsbm(
     wait: int = 1000,
     nbreaks: int = 2,
     collect_marginals: bool = False,
+    collect_niter: int 10000,
     hierarchy_length: int = 10,
     deg_corr: bool = False,
     *,
@@ -66,8 +67,11 @@ def nsbm(
         Equilibration should always be performed. Note, also, that without
         equilibration it won't be possible to collect marginals.
     collect_marginals
-        whether or not collect node probability of belonging
+        Whether or not collect node probability of belonging
         to a specific partition.
+    collect_niter
+        Number of iterations to force when collecting marginals. This will
+        increase the precision when calculating probabilites
     wait
         Number of iterations to wait for a record-breaking event.
         Higher values result in longer computations. Set it to small values
@@ -195,15 +199,14 @@ def nsbm(
     # equilibrate the Markov chain
     if equilibrate:
         logg.info('running MCMC equilibration step')
-        if not collect_marginals:
-            e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
-                                                            nbreaks=nbreaks,
-                                                            epsilon=epsilon,
-                                                            max_niter=max_iterations,
-                                                            multiflip=True,
-                                                            mcmc_args=dict(niter=10)
-                                                            )
-        else:
+        e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
+                                                          nbreaks=nbreaks,
+                                                          epsilon=epsilon,
+                                                          max_niter=max_iterations,
+                                                          multiflip=True,
+                                                          mcmc_args=dict(niter=10)
+                                                          )
+        if collect_marginals:
             # we here only retain level_0 counts, until I can't figure out
             # how to propagate correctly counts to higher levels
             logg.info('    collecting marginals')
@@ -224,14 +227,10 @@ def nsbm(
                     # execution. For this we need to reinitialize it
                     cell_marginals = [None] * len(s.get_levels())
 
-            e_dS, e_nattempts, e_nmoves = gt.mcmc_equilibrate(state, wait=wait,
-                                                            nbreaks=nbreaks,
-                                                            epsilon=epsilon,
-                                                            max_niter=max_iterations,
-                                                            multiflip=True,
-                                                            mcmc_args=dict(niter=10),
-                                                            callback=_collect_marginals,
-                                                            )
+            gt.mcmc_equilibrate(state, wait=wait, nbreaks=nbreaks, epsilon=epsilon,
+                                max_niter=max_iterations, multiflip=True,
+                                force_niter=collect_niter,
+                                mcmc_args=dict(niter=10),callback=_collect_marginals)
             logg.info('    done', time=start)
 
     # everything is in place, we need to fill all slots
