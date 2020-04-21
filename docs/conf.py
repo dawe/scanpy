@@ -94,9 +94,7 @@ intersphinx_mapping = dict(
 
 
 html_theme = 'sphinx_rtd_theme'
-html_theme_options = dict(
-    navigation_depth=4, logo_only=True  # Only show the logo
-)
+html_theme_options = dict(navigation_depth=4, logo_only=True)  # Only show the logo
 html_context = dict(
     display_github=True,  # Integrate GitHub
     github_user='theislab',  # Username
@@ -136,7 +134,9 @@ texinfo_documents = [
 # -- Suppress link warnings ----------------------------------------------------
 
 qualname_overrides = {
-    "sklearn.neighbors.dist_metrics.DistanceMetric": "sklearn.neighbors.DistanceMetric"
+    "sklearn.neighbors.dist_metrics.DistanceMetric": "sklearn.neighbors.DistanceMetric",
+    # If the docs are built with an old version of numpy, this will make it work:
+    "numpy.random.RandomState": "numpy.random.mtrand.RandomState",
 }
 
 nitpick_ignore = [
@@ -145,5 +145,6 @@ nitpick_ignore = [
     # Currently undocumented: https://github.com/mwaskom/seaborn/issues/1810
     ('py:class', 'seaborn.ClusterGrid'),
     # Won’t be documented
-    ('py:class', 'scanpy.readwrite.Empty'),
+    ('py:class', 'scanpy.plotting._utils._AxesSubplot'),
+    ('py:class', 'scanpy._utils.Empty'),
 ]

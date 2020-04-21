@@ -176,13 +176,25 @@ References
    *Computational assignment of cell-cycle stage from single-cell transcriptome data*
    `Methods <https://doi.org/10.1016/j.ymeth.2015.06.021>`__.
 
+.. [Setty16] Setty *et al.* (2016),
+   *Wishbone identifies bifurcating developmental trajectories from single-cell data*
+   `Nature Biotechnology <https://doi.org/10.1038/nbt.3569>`__.
+
 .. [Setty18] Setty *et al.* (2018),
    *Palantir characterizes cell fate continuities in human hematopoiesis*
-   `bioRxiv <https://doi.org/10.1101/385328>`__.
+   `Nature Biotechnology <https://www.nature.com/articles/s41587-019-0068-4>`__.
 
-.. [Traag17] Traag (2017),
+.. [Nowotschin18i] Nowotschin *et al.* (2018),
+   *The emergent landscape of the mouse gut endoderm at single-cell resolution*
+   `Nature <https://www.nature.com/articles/s41586-019-1127-1>`__.
+
+.. [Traag17]  (2017),
    *Louvain*,
    `GitHub <https://doi.org/10.5281/zenodo.35117>`__.
+
+.. [Tarashansky19] Tarashansky (2019),
+   *Self-assembling manifolds in single-cell RNA sequencing data*,
+   `Elife <https://doi.org/10.7554/eLife.48994>`__.
 
 .. [Traag18] Traag *et al.* (2018),
    *From Louvain to Leiden: guaranteeing well-connected communities*
